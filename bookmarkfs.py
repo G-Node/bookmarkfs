@@ -101,7 +101,7 @@ def main():
 	print 'Bookmark FS (c) 2011 G-Node\n'
 	print bookmarks
 	usage="""
-	Userspace hello example
+	Expose GTK+ Bookmarks as filesystem	
 
 	""" + Fuse.fusage
 	server = BookmarkFS(version="%prog " + fuse.__version__,
