@@ -83,13 +83,11 @@ class BookmarkFS(Fuse):
 		
 		bk = [value for value in read_bookmarks().keys()]
 		ret += bk
-		print ret
 		for r in ret:
 			yield fuse.Direntry(r)
 
 
 	def readlink (self, path):
-        	print '*** readlink', path
 		rel_path = path[1:]
 		if not bookmarks.has_key (rel_path):
 			return -errno.ENOENT
