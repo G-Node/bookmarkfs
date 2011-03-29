@@ -17,8 +17,7 @@
 # Place, Suite 330, Boston, MA  02111-1307  USA
 #
 # Authors: Philipp Rautenberg <philipp.rautenberg@g-node.org>
-#          	Christian Kellner <kellner@biologie.uni-muenchen.de>
-
+#          Christian Kellner <kellner@biologie.uni-muenchen.de>
 
 import os,stat,errno
 import fuse
@@ -26,10 +25,13 @@ from fuse import Fuse
 from urlparse import urlparse
 import urllib
 fuse.fuse_python_api = (0, 2)
+import threading
 
+watch_mutex = threading.Lock()
+bookmarks = {}
 
 def read_bookmarks():
-	bookmarks={}
+	bm={}
 	f = open (os.path.expanduser ('~/.gtk-bookmarks'))
 	for line in f:
 		pos = str.find (line, ' ')
@@ -42,10 +44,31 @@ def read_bookmarks():
 			name = os.path.basename (u.path)
 		else:
 			name = line[pos + 1: -1];
-		bookmarks[name] = urllib.url2pathname(u.path)
-	return bookmarks
+		bm[name] = urllib.url2pathname(u.path)
+	return bm
 
-bookmarks = read_bookmarks()
+def update_bookmarks():
+	global bookmarks
+	watch_mutex.acquire ()
+	bookmarks = read_bookmarks()
+	watch_mutex.release ()
+
+try:
+	import pyinotify as inotify
+	do_watch = True
+
+	class INEventHandler(inotify.ProcessEvent):
+		def process_IN_MOVED_TO(self, event):
+			path = event.pathname
+			fn = os.path.basename (path)
+			if not fn == '.gtk-bookmarks':
+				return
+			update_bookmarks()
+
+except ImportError, e:
+	do_watch = False
+
+
 
 class MyStat(fuse.Stat):
 	def __init__(self):
@@ -65,6 +88,9 @@ class BookmarkFS(Fuse):
 	def getattr(self, path):
 		rel_path = path[1:]
 		st = MyStat()
+
+		watch_mutex.acquire ()
+
 		if path == '/':
 			st.st_mode = stat.S_IFDIR | 0755
 			st.st_nlink = 2
@@ -74,32 +100,42 @@ class BookmarkFS(Fuse):
 			st.st_uid = os.getuid()
 			st.st_gid = os.getgid()
 		else:
-			return -errno.ENOENT
+			st = -errno.ENOENT
+
+		watch_mutex.release ()
 		return st
 
 	def readdir(self, path, offset):
 		ret = ['.',
 		'..',]
-		
+
+		watch_mutex.acquire ()
+	
 		bk = [value for value in read_bookmarks().keys()]
 		ret += bk
 		for r in ret:
 			yield fuse.Direntry(r)
+		watch_mutex.release ()
 
 
 	def readlink (self, path):
 		rel_path = path[1:]
+
+		watch_mutex.acquire ()
+
 		if not bookmarks.has_key (rel_path):
+			watch_mutex.release ()
 			return -errno.ENOENT
 
 		linkpath = bookmarks[rel_path]
+		watch_mutex.release ()
+
 		return linkpath
 
 def main():
 	print 'Bookmark FS (c) 2011 G-Node\n'
-	print bookmarks
 	usage="""
-	Expose GTK+ Bookmarks as filesystem	
+	Expose GTK+ Bookmarks as filesystem
 
 	""" + Fuse.fusage
 	server = BookmarkFS(version="%prog " + fuse.__version__,
@@ -107,7 +143,22 @@ def main():
 	dash_s_do='setsingle')
 
 	server.parse(values=server, errex=1)
+
+	if do_watch:
+		wm = inotify.WatchManager() 
+		mask = inotify.IN_MOVED_TO
+
+		notifier = inotify.ThreadedNotifier(wm, INEventHandler())
+		notifier.start()
+		wdd = wm.add_watch(os.path.expanduser ('~'), mask)
+	
+	update_bookmarks()
+	
 	server.main()
+
+	if do_watch:
+		wm.rm_watch(wdd.values())
+		notifier.stop()
 
 if __name__=='__main__':
 	main()
