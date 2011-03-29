@@ -1,9 +1,9 @@
 GTK+ Bookmark Filesystem
 ========================
 
-This little FUSE-based service implementation exposes the GTK+
-bookmarks, as seen in Nautilus or the GTK+ file-selector as
-file-system that can be mounted.
+This little FUSE-based service  exposes the GTK+ bookmarks,
+as seen in Nautilus or the GTK+ file-selector, as links in a
+virtual file-system that can be mounted.
 
 Usage:
 ------
