@@ -1,0 +1,26 @@
+GTK+ Bookmark Filesystem
+========================
+
+This little FUSE-based service implementation exposes the GTK+
+bookmarks, as seen in Nautilus or the GTK+ file-selector as
+file-system that can be mounted.
+
+Usage:
+------
+	> bookmarkfs.py <mountpoint>
+
+For additional options, call:
+
+	> bookmarkfs.py --help
+
+Issues:
+-------
+Please report any problems here:
+	https://github.com/G-Node/bookmarkfs/issues
+
+
+Authors:
+--------
+	Philipp Rautenberg <philipp.rautenberg@g-node.org>
+	Christian Kellner <kellner@biologie.uni-muenchen.de>
+
